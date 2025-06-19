@@ -1,0 +1,226 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/homeschool-math-placement-growth/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id
+  email        String   @unique
+  name         String
+  subscription String   @default("trial") // 'active', 'inactive', 'trial', 'free'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  children     Child[]
+  
+  @@map("users")
+}
+
+model Child {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  birthDate      DateTime?
+  preferredGrade String
+  preferredLang  String   @default("en") // 'en' or 'es'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testResults    PlacementTestResult[]
+  insightReports InsightReport[]
+  growthPlans    GrowthPlan[]
+  progressLogs   ProgressLog[]
+  weeklyQuizzes  WeeklyQuiz[]
+  quizAttempts   QuizAttempt[]
+  badges         Badge[]
+  
+  @@map("children")
+}
+
+model PlacementTestResult {
+  id           String   @id @default(cuid())
+  childId      String
+  gradeLevel   String
+  responses    Json     // Array of PlacementTestResponse objects
+  score        Float?
+  completed    Boolean  @default(false)
+  dateCompleted DateTime @default(now())
+  createdAt    DateTime @default(now())
+  
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  insightReports InsightReport[]
+  
+  @@map("placement_test_results")
+}
+
+model InsightReport {
+  id              String   @id @default(cuid())
+  childId         String
+  testId          String
+  strengths       String[] // Array of strength descriptions
+  weaknesses      String[] // Array of weakness descriptions
+  gradeEquivalence String
+  commonErrors    String[] // Array of common error descriptions
+  theologyNote    String
+  aiSummary       String
+  pdfUrl          String?
+  createdAt       DateTime @default(now())
+  
+  child           Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  testResult      PlacementTestResult @relation(fields: [testId], references: [id], onDelete: Cascade)
+  growthPlans     GrowthPlan[]
+  
+  @@map("insight_reports")
+}
+
+model GrowthPlan {
+  id           String   @id @default(cuid())
+  childId      String
+  reportId     String?
+  planStructure Json    // Array of WeeklyPlan objects
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  report       InsightReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  weekDetails  WeekDetail[]
+  
+  @@map("growth_plans")
+}
+
+model WeekDetail {
+  id           String   @id @default(cuid())
+  planId       String
+  weekNumber   Int
+  weekTheme    String?
+  mathConcept  String
+  theology     String?
+  dailyLessons Json?    // Array of DailyLesson objects
+  isGenerated  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  plan         GrowthPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dailyLessonDetails DailyLessonDetail[]
+  
+  @@unique([planId, weekNumber])
+  @@map("week_details")
+}
+
+model DailyLessonDetail {
+  id              String   @id @default(cuid())
+  weekDetailId    String
+  dayNumber       Int      // 1-5
+  dayTitle        String
+  devotional      Json     // { verse: string, reflection: string }
+  learningObjective String
+  definition      String
+  explanation     String
+  guidedExamples  Json     // Array of { title: string, steps: string[] }
+  mainExercises   Json     // Array of { problem: string, answer?: string }
+  commonMistakes  Json     // Array of { mistake: string, correction: string }
+  parentDiscussion Json    // Array of discussion points (strings)
+  homework        Json     // Array of { type: string, description: string }
+  closingEncouragement String
+  isCompleted     Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  weekDetail      WeekDetail @relation(fields: [weekDetailId], references: [id], onDelete: Cascade)
+  
+  @@unique([weekDetailId, dayNumber])
+  @@map("daily_lesson_details")
+}
+
+model ProgressLog {
+  id           String   @id @default(cuid())
+  childId      String
+  weekNumber   Int
+  dayNumber    Int
+  activity     String   // Description of completed activity
+  timeSpent    Int?     // Minutes spent
+  mastery      String   // 'struggling', 'developing', 'proficient', 'advanced'
+  notes        String?
+  completedAt  DateTime @default(now())
+  
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  
+  @@map("progress_logs")
+}
+
+model ContactForm {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  subject     String?
+  message     String
+  formType    String   @default("general") // 'general', 'support', 'feedback'
+  status      String   @default("new") // 'new', 'reviewed', 'responded'
+  createdAt   DateTime @default(now())
+  
+  @@map("contact_forms")
+}
+
+model WeeklyQuiz {
+  id           String   @id @default(cuid())
+  childId      String
+  weekNumber   Int
+  mathConcept  String
+  questions    Json     // Array of QuizQuestion objects
+  totalQuestions Int    @default(5)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  attempts     QuizAttempt[]
+  
+  @@unique([childId, weekNumber])
+  @@map("weekly_quizzes")
+}
+
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  quizId       String
+  childId      String
+  responses    Json     // Array of QuizResponse objects
+  score        Float    // Percentage score (0-100)
+  timeSpent    Int?     // Minutes spent on quiz
+  completed    Boolean  @default(false)
+  attemptNumber Int     @default(1)
+  feedback     String?  // AI-generated feedback
+  createdAt    DateTime @default(now())
+  completedAt  DateTime?
+  
+  quiz         WeeklyQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  
+  @@map("quiz_attempts")
+}
+
+model Badge {
+  id           String   @id @default(cuid())
+  childId      String
+  badgeType    String   // 'quiz_streak', 'perfect_score', 'improvement', 'weekly_completion'
+  badgeName    String
+  description  String
+  iconName     String   // Lucide icon name
+  colorScheme  String   // Color theme for badge
+  weekNumber   Int?     // Associated week if applicable
+  earnedAt     DateTime @default(now())
+  
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  
+  @@map("badges")
+}
