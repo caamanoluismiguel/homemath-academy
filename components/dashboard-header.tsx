@@ -21,7 +21,7 @@ export default function DashboardHeader() {
 
   if (!user) return null;
 
-  const subscriptionInfo = SUBSCRIPTION_TIERS[user.subscription as keyof typeof SUBSCRIPTION_TIERS];
+  const subscriptionInfo = SUBSCRIPTION_TIERS[(user.subscription || 'free') as keyof typeof SUBSCRIPTION_TIERS];
 
   return (
     <header className="sticky top-0 z-50 glass-effect border-b">
@@ -53,10 +53,10 @@ export default function DashboardHeader() {
           <div className="flex items-center space-x-4">
             {/* Subscription Badge */}
             <Badge 
-              variant={user.subscription === 'trial' ? 'secondary' : 'default'}
+              variant={(user.subscription || 'free') === 'trial' ? 'secondary' : 'default'}
               className="hidden sm:flex"
             >
-              {(user.subscription === 'family' || user.subscription === 'basic') && <Crown className="w-3 h-3 mr-1" />}
+              {((user.subscription || 'free') === 'family' || (user.subscription || 'free') === 'basic') && <Crown className="w-3 h-3 mr-1" />}
               {subscriptionInfo?.name || 'Free'}
             </Badge>
 
